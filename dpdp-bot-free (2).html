@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>DataShield — DPDP Compliance Bot</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #0a0e1a;
+    --bg2: #0f1524;
+    --surface: #1a2035;
+    --surface2: #202840;
+    --border: rgba(99,179,237,0.12);
+    --border2: rgba(99,179,237,0.22);
+    --accent: #63b3ed;
+    --accent2: #4fd1c5;
+    --accent3: #f6ad55;
+    --danger: #fc8181;
+    --success: #68d391;
+    --text: #e8edf5;
+    --text2: #8b9bb4;
+    --text3: #566278;
+    --font-head: 'Syne', sans-serif;
+    --font-body: 'DM Sans', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(99,179,237,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99,179,237,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none; z-index: 0;
+  }
+  #root { position: relative; z-index: 1; }
+
+  .app { display: flex; height: 100vh; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 240px; flex-shrink: 0;
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    padding: 24px 0;
+  }
+  .logo { padding: 0 20px 20px; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
+  .logo-mark { font-family: var(--font-head); font-weight: 800; font-size: 20px; color: var(--accent); }
+  .logo-sub { font-size: 10px; color: var(--text3); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 2px; }
+  .nav-label { font-size: 10px; color: var(--text3); font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 1.5px; padding: 0 20px; margin-bottom: 6px; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 20px; cursor: pointer;
+    color: var(--text2); font-size: 13.5px;
+    transition: all 0.15s;
+    border-left: 2px solid transparent;
+  }
+  .nav-item:hover { color: var(--text); background: rgba(99,179,237,0.05); }
+  .nav-item.active { color: var(--accent); border-left-color: var(--accent); background: rgba(99,179,237,0.07); font-weight: 500; }
+
+  .sidebar-footer { margin-top: auto; padding: 16px 20px 0; border-top: 1px solid var(--border); }
+  .law-badge {
+    display: inline-block; font-size: 10px; font-family: var(--font-mono);
+    padding: 3px 8px; border-radius: 4px; margin: 2px 2px 2px 0;
+    background: var(--surface); border: 1px solid var(--border2); color: var(--text2);
+  }
+  .law-badge.dpdp { border-color: rgba(99,179,237,0.4); color: var(--accent); }
+  .law-badge.gdpr { border-color: rgba(79,209,197,0.4); color: var(--accent2); }
+  .law-badge.ita  { border-color: rgba(246,173,85,0.4); color: var(--accent3); }
+
+  /* Main */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  .topbar {
+    padding: 14px 24px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--bg2);
+  }
+  .page-title { font-family: var(--font-head); font-weight: 700; font-size: 17px; }
+  .status-dot { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--text2); font-family: var(--font-mono); }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--success); box-shadow: 0 0 8px var(--success); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* Chat */
+  .chat-area {
+    flex: 1; overflow-y: auto; padding: 24px;
+    display: flex; flex-direction: column; gap: 18px;
+    scroll-behavior: smooth;
+  }
+  .chat-area::-webkit-scrollbar { width: 3px; }
+  .chat-area::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 2px; }
+
+  .msg { display: flex; gap: 10px; animation: fadeIn 0.2s ease; }
+  @keyframes fadeIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:none} }
+  .msg.user { flex-direction: row-reverse; }
+
+  .avatar {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; flex-shrink: 0; margin-top: 2px;
+  }
+  .avatar.bot { background: linear-gradient(135deg,rgba(99,179,237,0.2),rgba(79,209,197,0.15)); border: 1px solid var(--border2); }
+  .avatar.user { background: var(--surface2); border: 1px solid var(--border); font-size: 12px; font-family: var(--font-head); font-weight: 700; color: var(--accent); }
+
+  .bubble {
+    max-width: 72%; padding: 12px 16px;
+    border-radius: 12px; font-size: 13.5px; line-height: 1.75;
+  }
+  .bubble.bot { background: var(--surface); border: 1px solid var(--border); color: var(--text); }
+  .bubble.user { background: linear-gradient(135deg,rgba(99,179,237,0.18),rgba(79,209,197,0.12)); border: 1px solid rgba(99,179,237,0.25); }
+
+  .citation {
+    display: inline-flex; align-items: center;
+    font-family: var(--font-mono); font-size: 10px;
+    padding: 2px 7px; border-radius: 4px; margin: 0 2px;
+    vertical-align: middle;
+  }
+  .citation.dpdp { background: rgba(99,179,237,0.12); color: var(--accent); border: 1px solid rgba(99,179,237,0.3); }
+  .citation.gdpr { background: rgba(79,209,197,0.12); color: var(--accent2); border: 1px solid rgba(79,209,197,0.3); }
+  .citation.ita  { background: rgba(246,173,85,0.12); color: var(--accent3); border: 1px solid rgba(246,173,85,0.3); }
+
+  .typing { display: flex; gap: 5px; align-items: center; padding: 4px 0; }
+  .typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); opacity: 0.4; animation: bounce 1.2s infinite; }
+  .typing span:nth-child(2){animation-delay:.2s} .typing span:nth-child(3){animation-delay:.4s}
+  @keyframes bounce { 0%,80%,100%{transform:translateY(0);opacity:0.4} 40%{transform:translateY(-6px);opacity:1} }
+
+  .quick-prompts { display: flex; flex-wrap: wrap; gap: 7px; padding: 0 24px 12px; }
+  .qp {
+    font-size: 11.5px; padding: 6px 13px; border-radius: 20px;
+    border: 1px solid var(--border2); background: var(--surface);
+    color: var(--text2); cursor: pointer; transition: all 0.15s;
+    font-family: var(--font-mono);
+  }
+  .qp:hover { border-color: var(--accent); color: var(--accent); background: rgba(99,179,237,0.07); }
+
+  .input-bar { padding: 14px 24px 18px; border-top: 1px solid var(--border); background: var(--bg2); }
+  .input-wrap {
+    display: flex; gap: 10px; align-items: flex-end;
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 12px; padding: 10px 14px; transition: border-color 0.2s;
+  }
+  .input-wrap:focus-within { border-color: rgba(99,179,237,0.4); }
+  textarea {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--text); font-family: var(--font-body); font-size: 13.5px;
+    resize: none; min-height: 22px; max-height: 100px; line-height: 1.5; padding: 0;
+  }
+  textarea::placeholder { color: var(--text3); }
+  .send-btn {
+    width: 34px; height: 34px; border-radius: 8px; border: none;
+    background: var(--accent); color: #0a0e1a; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700; flex-shrink: 0; transition: all 0.15s;
+  }
+  .send-btn:hover { background: #90cdf4; transform: scale(1.05); }
+  .send-btn:disabled { background: var(--surface2); color: var(--text3); cursor: not-allowed; transform: none; }
+
+  /* Checklist */
+  .checklist-area { flex: 1; overflow-y: auto; padding: 24px; }
+  .checklist-area::-webkit-scrollbar { width: 3px; }
+  .checklist-area::-webkit-scrollbar-thumb { background: var(--surface2); border-radius: 2px; }
+
+  .section-head {
+    font-family: var(--font-head); font-size: 12px; font-weight: 600;
+    color: var(--text2); text-transform: uppercase; letter-spacing: 1.5px;
+    margin: 20px 0 10px; display: flex; align-items: center; gap: 10px;
+  }
+  .section-head::after { content:''; flex:1; height:1px; background:var(--border); }
+
+  .check-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 16px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: 10px;
+    margin-bottom: 7px; transition: border-color 0.15s;
+    border-left: 3px solid var(--border);
+  }
+  .check-item.yes { border-left-color: var(--success); }
+  .check-item.no  { border-left-color: var(--danger); }
+  .check-item.na  { border-left-color: var(--text3); }
+
+  .check-q { flex: 1; font-size: 13px; line-height: 1.5; color: var(--text); }
+  .check-q small { display: block; font-size: 10px; font-family: var(--font-mono); color: var(--text3); margin-top: 3px; }
+
+  .check-btns { display: flex; gap: 5px; flex-shrink: 0; }
+  .check-btn {
+    padding: 4px 10px; border-radius: 6px;
+    border: 1px solid var(--border2); background: transparent;
+    color: var(--text2); font-size: 11px; font-family: var(--font-mono);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .check-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .check-btn.active-yes { background: rgba(104,211,145,0.15); border-color: var(--success); color: var(--success); }
+  .check-btn.active-no  { background: rgba(252,129,129,0.15); border-color: var(--danger); color: var(--danger); }
+  .check-btn.active-na  { background: rgba(86,98,120,0.3); border-color: var(--text3); color: var(--text2); }
+
+  .score-card {
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 14px; padding: 20px; margin-bottom: 20px;
+  }
+  .score-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .score-num { font-family: var(--font-head); font-size: 44px; font-weight: 800; line-height: 1; }
+  .score-bar-bg { height: 7px; background: var(--bg); border-radius: 4px; overflow: hidden; margin-bottom: 10px; }
+  .score-bar-fill { height: 100%; border-radius: 4px; transition: width 0.8s cubic-bezier(.4,0,.2,1); }
+  .score-stats { display: flex; gap: 16px; font-size: 11px; font-family: var(--font-mono); }
+  .stat-yes{color:var(--success)} .stat-no{color:var(--danger)} .stat-na{color:var(--text3)}
+
+  .analyze-btn {
+    width: 100%; padding: 12px; border-radius: 10px; border: none;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #0a0e1a; font-family: var(--font-head); font-weight: 700;
+    font-size: 14px; cursor: pointer; transition: all 0.2s;
+  }
+  .analyze-btn:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(99,179,237,0.3); }
+  .analyze-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  .gap-report {
+    background: var(--surface); border: 1px solid var(--border2);
+    border-radius: 12px; padding: 20px; font-size: 13px;
+    line-height: 1.8; color: var(--text); margin-top: 16px;
+    white-space: pre-wrap; animation: fadeIn 0.3s ease;
+  }
+  .gap-report-head {
+    font-family: var(--font-head); font-size: 12px; font-weight: 600;
+    color: var(--accent2); text-transform: uppercase; letter-spacing: 1.5px;
+    margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+  }
+  .welcome {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; text-align: center;
+    padding: 36px 24px 16px; gap: 12px;
+  }
+  .welcome-icon { font-size: 36px; }
+  .welcome-title { font-family: var(--font-head); font-size: 20px; font-weight: 800; }
+  .welcome-sub { font-size: 13.5px; color: var(--text2); max-width: 400px; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script type="text/babel">
+const { useState, useRef, useEffect } = React;
+
+const SYSTEM_PROMPT = `You are DataShield, an expert AI compliance assistant specializing in:
+1. Digital Personal Data Protection (DPDP) Act, 2023 (India)
+2. General Data Protection Regulation (GDPR) — EU
+3. Information Technology Act, 2000 (IT Act) — India, especially Section 43A and 72A
+
+Your role:
+- Answer questions clearly and accurately about data protection laws
+- Always cite specific sections/articles inline like: [DPDP §6] or [GDPR Art.13] or [IT Act §43A]
+- Explain legal terms in plain, accessible language
+- When relevant, compare provisions across DPDP, GDPR, and IT Act
+- Flag compliance risks clearly
+- Be concise but thorough — use bullet points for lists
+
+Always be helpful, professional, and accurate. Never give generic answers — be specific to the law.`;
+
+const CHECKLIST = [
+  { id:1, section:"Consent & Notice", q:"Does your organization obtain explicit, informed consent before collecting personal data?", ref:"DPDP §6", law:"dpdp" },
+  { id:2, section:"Consent & Notice", q:"Is the privacy notice provided in clear, plain language (not legal jargon)?", ref:"DPDP §5 / GDPR Art.13", law:"gdpr" },
+  { id:3, section:"Data Principal Rights", q:"Can users access, correct, or erase their personal data on request?", ref:"DPDP §11–13", law:"dpdp" },
+  { id:4, section:"Data Principal Rights", q:"Is there a grievance redressal mechanism with a designated contact?", ref:"DPDP §13(6)", law:"dpdp" },
+  { id:5, section:"Data Fiduciary Obligations", q:"Is collected data limited to what is necessary for the stated purpose (data minimisation)?", ref:"DPDP §4(1) / GDPR Art.5", law:"gdpr" },
+  { id:6, section:"Data Fiduciary Obligations", q:"Is there a documented data retention policy with defined deletion timelines?", ref:"DPDP §8(7)", law:"dpdp" },
+  { id:7, section:"Security & Breach", q:"Are reasonable security safeguards (encryption, access controls) in place?", ref:"DPDP §8(5) / IT Act §43A", law:"ita" },
+  { id:8, section:"Security & Breach", q:"Is there a breach notification process to inform affected users and the Data Protection Board?", ref:"DPDP §8(6)", law:"dpdp" },
+  { id:9, section:"Cross-border & Third Parties", q:"Are data-sharing agreements in place with all third-party processors?", ref:"DPDP §8(2) / GDPR Art.28", law:"gdpr" },
+  { id:10, section:"Cross-border & Third Parties", q:"If transferring data outside India, is it to a notified country or with appropriate safeguards?", ref:"DPDP §16", law:"dpdp" },
+  { id:11, section:"Children's Data", q:"Is verifiable parental consent obtained before processing data of children under 18?", ref:"DPDP §9", law:"dpdp" },
+  { id:12, section:"Significant Data Fiduciary", q:"If classified as a Significant Data Fiduciary, is a Data Protection Officer appointed?", ref:"DPDP §10", law:"dpdp" },
+];
+
+const QUICK_PROMPTS = [
+  "Key obligations under DPDP Act 2023?",
+  "What rights do data principals have?",
+  "Penalties for data breach under DPDP?",
+  "How does DPDP compare with GDPR?",
+  "Who is a Significant Data Fiduciary?",
+  "What does IT Act §43A say?",
+];
+
+function CitationTag({ text }) {
+  if (!text) return null;
+  const parts = [];
+  const regex = /\[(DPDP|GDPR|IT Act)([^\]]*)\]/g;
+  let last = 0, match;
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > last) parts.push(<span key={last}>{text.slice(last, match.index)}</span>);
+    const law = match[1] === 'DPDP' ? 'dpdp' : match[1] === 'GDPR' ? 'gdpr' : 'ita';
+    parts.push(<span key={match.index} className={`citation ${law}`}>{match[0].slice(1,-1)}</span>);
+    last = match.index + match[0].length;
+  }
+  if (last < text.length) parts.push(<span key={last}>{text.slice(last)}</span>);
+  return <>{parts}</>;
+}
+
+function App() {
+  const [tab, setTab] = useState('chat');
+  const [messages, setMessages] = useState([{
+    role: 'assistant',
+    content: "Hi! I'm DataShield, your DPDP compliance assistant. Ask me anything about the DPDP Act 2023, GDPR, or IT Act — rights, obligations, penalties, and compliance requirements."
+  }]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [answers, setAnswers] = useState({});
+  const [gapReport, setGapReport] = useState('');
+  const [analyzing, setAnalyzing] = useState(false);
+  const chatEndRef = useRef(null);
+  const taRef = useRef(null);
+
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, loading]);
+
+  const autoResize = () => {
+    if (!taRef.current) return;
+    taRef.current.style.height = 'auto';
+    taRef.current.style.height = Math.min(taRef.current.scrollHeight, 100) + 'px';
+  };
+
+  const sendMessage = async (text) => {
+    const msg = (text || input).trim();
+    if (!msg || loading) return;
+    setInput('');
+    if (taRef.current) taRef.current.style.height = 'auto';
+    const newMessages = [...messages, { role: 'user', content: msg }];
+    setMessages(newMessages);
+    setLoading(true);
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          system: SYSTEM_PROMPT,
+          messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+        })
+      });
+      const data = await res.json();
+      const reply = data.content?.[0]?.text || 'Sorry, could not get a response.';
+      setMessages(prev => [...prev, { role: 'assistant', content: reply }]);
+    } catch(e) {
+      setMessages(prev => [...prev, { role: 'assistant', content: 'Connection error. Please try again.' }]);
+    }
+    setLoading(false);
+  };
+
+  const handleKey = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  };
+
+  const setAnswer = (id, val) => {
+    setAnswers(prev => ({ ...prev, [id]: prev[id] === val ? undefined : val }));
+    setGapReport('');
+  };
+
+  const calcScore = () => {
+    const yes = CHECKLIST.filter(q => answers[q.id] === 'yes').length;
+    const no  = CHECKLIST.filter(q => answers[q.id] === 'no').length;
+    const na  = CHECKLIST.filter(q => answers[q.id] === 'na').length;
+    const answered = CHECKLIST.filter(q => answers[q.id]).length;
+    const eligible = answered - na;
+    const score = eligible > 0 ? Math.round((yes / eligible) * 100) : 0;
+    return { score, yes, no, na, answered };
+  };
+
+  const getColor = (s) => s >= 80 ? 'var(--success)' : s >= 50 ? 'var(--accent3)' : 'var(--danger)';
+
+  const analyzeGaps = async () => {
+    setAnalyzing(true);
+    const { score, yes, no } = calcScore();
+    const gaps = CHECKLIST.filter(q => answers[q.id] === 'no').map(q => `- ${q.q} [${q.ref}]`).join('\n');
+    const prompt = `Organization compliance check results — Score: ${score}/100. YES: ${yes}, NO: ${no}.
+
+Gaps (answered NO):
+${gaps || 'None identified'}
+
+Provide:
+1. Brief risk assessment (2-3 sentences)
+2. Top 3 priority remediation actions with specific law references
+3. Overall compliance level summary
+
+Be specific and cite DPDP/GDPR/IT Act sections throughout.`;
+
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 800,
+          system: SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: prompt }]
+        })
+      });
+      const data = await res.json();
+      setGapReport(data.content?.[0]?.text || 'Could not generate report.');
+    } catch(e) { setGapReport('Error generating report. Please try again.'); }
+    setAnalyzing(false);
+  };
+
+  const { score, yes, no, na, answered } = calcScore();
+  const sections = [...new Set(CHECKLIST.map(q => q.section))];
+
+  return (
+    <div className="app">
+      <div className="sidebar">
+        <div className="logo">
+          <div className="logo-mark">DataShield</div>
+          <div className="logo-sub">Compliance Intelligence</div>
+        </div>
+        <div className="nav-label">Navigation</div>
+        <div className={`nav-item ${tab==='chat'?'active':''}`} onClick={()=>setTab('chat')}>💬 Ask the Bot</div>
+        <div className={`nav-item ${tab==='checklist'?'active':''}`} onClick={()=>setTab('checklist')}>✅ Compliance Check</div>
+        <div className="sidebar-footer">
+          <div style={{fontSize:'10px',color:'var(--text3)',fontFamily:'var(--font-mono)',marginBottom:'8px',textTransform:'uppercase',letterSpacing:'1px'}}>Covered Laws</div>
+          <span className="law-badge dpdp">DPDP 2023</span>
+          <span className="law-badge gdpr">GDPR</span>
+          <span className="law-badge ita">IT Act 2000</span>
+          {answered > 0 && (
+            <div style={{marginTop:'14px',padding:'10px',background:'var(--bg)',borderRadius:'8px',border:'1px solid var(--border)'}}>
+              <div style={{fontSize:'10px',color:'var(--text3)',fontFamily:'var(--font-mono)',marginBottom:'4px'}}>SCORE</div>
+              <div style={{fontSize:'28px',fontFamily:'var(--font-head)',fontWeight:'800',color:getColor(score)}}>{score}<span style={{fontSize:'13px',color:'var(--text2)'}}>/100</span></div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="main">
+        <div className="topbar">
+          <div className="page-title">{tab==='chat'?'Compliance Assistant':'Compliance Checklist'}</div>
+          <div className="status-dot"><span className="dot"/> AI Online</div>
+        </div>
+
+        {tab === 'chat' && (
+          <>
+            {messages.length === 1 && (
+              <div className="welcome">
+                <div className="welcome-icon">🛡️</div>
+                <div className="welcome-title">Ask anything about data protection</div>
+                <div className="welcome-sub">DPDP Act 2023, GDPR, IT Act — rights, obligations, penalties, compliance requirements. All explained in plain language with law citations.</div>
+              </div>
+            )}
+            <div className="chat-area">
+              {messages.map((m,i) => (
+                <div key={i} className={`msg ${m.role==='user'?'user':''}`}>
+                  <div className={`avatar ${m.role==='user'?'user':'bot'}`}>{m.role==='user'?'U':'🛡'}</div>
+                  <div className={`bubble ${m.role==='user'?'user':'bot'}`}><CitationTag text={m.content}/></div>
+                </div>
+              ))}
+              {loading && (
+                <div className="msg">
+                  <div className="avatar bot">🛡</div>
+                  <div className="bubble bot"><div className="typing"><span/><span/><span/></div></div>
+                </div>
+              )}
+              <div ref={chatEndRef}/>
+            </div>
+            <div className="quick-prompts">
+              {QUICK_PROMPTS.map((qp,i) => <button key={i} className="qp" onClick={()=>sendMessage(qp)}>{qp}</button>)}
+            </div>
+            <div className="input-bar">
+              <div className="input-wrap">
+                <textarea ref={taRef} placeholder="Ask about DPDP Act, GDPR, IT Act..." value={input}
+                  onChange={e=>{setInput(e.target.value);autoResize();}} onKeyDown={handleKey} rows={1}/>
+                <button className="send-btn" onClick={()=>sendMessage()} disabled={loading||!input.trim()}>↑</button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {tab === 'checklist' && (
+          <div className="checklist-area">
+            <div className="score-card">
+              <div className="score-row">
+                <div>
+                  <div style={{fontSize:'11px',color:'var(--text2)',fontFamily:'var(--font-mono)',textTransform:'uppercase',letterSpacing:'1px',marginBottom:'4px'}}>Compliance Score</div>
+                  <div className="score-num" style={{color:getColor(score)}}>{score}<span style={{fontSize:'18px',color:'var(--text2)'}}>/100</span></div>
+                </div>
+                <div style={{textAlign:'right'}}>
+                  <div style={{fontSize:'12px',color:'var(--text2)',marginBottom:'4px'}}>{answered}/12 answered</div>
+                  <div style={{fontSize:'11px',fontFamily:'var(--font-mono)',color:getColor(score)}}>
+                    {score>=80?'✓ Good standing':score>=50?'⚠ Needs improvement':'✗ High risk'}
+                  </div>
+                </div>
+              </div>
+              <div className="score-bar-bg">
+                <div className="score-bar-fill" style={{width:score+'%',background:getColor(score)}}/>
+              </div>
+              <div className="score-stats">
+                <span className="stat-yes">✓ {yes} compliant</span>
+                <span className="stat-no">✗ {no} gaps</span>
+                <span className="stat-na">— {na} N/A</span>
+              </div>
+            </div>
+
+            {sections.map(sec => (
+              <div key={sec}>
+                <div className="section-head">{sec}</div>
+                {CHECKLIST.filter(q=>q.section===sec).map(q => (
+                  <div key={q.id} className={`check-item ${answers[q.id]||''}`}>
+                    <div className="check-q">
+                      {q.q}
+                      <small><span className={`citation ${q.law}`}>{q.ref}</span></small>
+                    </div>
+                    <div className="check-btns">
+                      <button className={`check-btn ${answers[q.id]==='yes'?'active-yes':''}`} onClick={()=>setAnswer(q.id,'yes')}>Yes</button>
+                      <button className={`check-btn ${answers[q.id]==='no'?'active-no':''}`}  onClick={()=>setAnswer(q.id,'no')}>No</button>
+                      <button className={`check-btn ${answers[q.id]==='na'?'active-na':''}`}  onClick={()=>setAnswer(q.id,'na')}>N/A</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+
+            <div style={{marginTop:'20px',marginBottom:'6px'}}>
+              <button className="analyze-btn" onClick={analyzeGaps} disabled={analyzing||answered<6}>
+                {analyzing ? '⏳ Generating AI Gap Analysis...' : '🔍 Generate AI Gap Analysis'}
+              </button>
+              {answered < 6 && <div style={{fontSize:'11px',color:'var(--text3)',textAlign:'center',marginTop:'7px',fontFamily:'var(--font-mono)'}}>Answer at least 6 questions to unlock</div>}
+            </div>
+
+            {gapReport && (
+              <div>
+                <div className="gap-report-head">⚡ AI Gap Analysis</div>
+                <div className="gap-report">{gapReport}</div>
+              </div>
+            )}
+            <div style={{height:'40px'}}/>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
